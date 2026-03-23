@@ -1,0 +1,12 @@
+# Ignore the actual database data
+postgres_data/
+redpanda_data/
+
+# Ignore Python cache and virtual environments
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Ignore system files
+.DS_Store

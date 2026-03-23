@@ -1,0 +1,61 @@
+services:
+  # --- 1. INFRASTRUCTURE ---
+  timescaledb:
+    image: timescale/timescaledb:latest-pg14
+    container_name: whale_db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=admin
+      - POSTGRES_DB=crypto_db
+    ports:
+      - "5444:5432"
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:latest
+    container_name: redpanda_broker
+    command:
+      - redpanda
+      - start
+      - --smp 1
+      - --memory 1G
+      - --reserve-memory 0M
+      - --overprovisioned
+      - --node-id 0
+      - --kafka-addr PLAINTEXT://0.0.0.0:29092,OUTSIDE://0.0.0.0:9092
+      - --advertise-kafka-addr PLAINTEXT://redpanda:29092,OUTSIDE://localhost:9092
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+
+  # --- 2. PYTHON MICROSERVICES ---
+  producer:
+    build: .
+    container_name: whale_producer
+    command: python 1_producer.py
+    depends_on:
+      - redpanda
+    restart: on-failure
+
+  consumer:
+    build: .
+    container_name: whale_consumer
+    command: python 2_consumer.py
+    depends_on:
+      - redpanda
+      - timescaledb
+    restart: on-failure
+
+  dashboard:
+    build: .
+    container_name: whale_dashboard
+    command: streamlit run dashboard.py --server.port=8501 --server.address=0.0.0.0
+    ports:
+      - "8501:8501"
+    depends_on:
+      - timescaledb
+    restart: on-failure
+
+volumes:
+  timescale_data:
